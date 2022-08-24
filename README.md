@@ -17,10 +17,8 @@ for a production application's environment.
 Let's get started again with the cluster network, and a single Cassandra node
 
 
-``` shell
-docker network create cassandra
-
-docker run --name cassandra-node-1 --network cassandra -d -p 9042:9042 \
+``` text
+docker run --name cassandra-node-1 --network labnetwork -d -p 9042:9042 \
     -e CASSANDRA_CFG_ENV_MAX_HEAP_SIZE="2048M" \
     -e CASSANDRA_CFG_ENV_HEAP_NEWSIZE="512M" \
     bitnami/cassandra:4.0.5-debian-11-r1
@@ -29,7 +27,7 @@ docker run --name cassandra-node-1 --network cassandra -d -p 9042:9042 \
 Now load the demo data into this new Database.
 The Cassandra instances in this lab may take some time to fully start, so just retry a few times if you get a failure.
 
-``` shell
+``` text
 docker cp words.csv cassandra-node-1:/
 docker cp words.cql cassandra-node-1:/
 docker exec -it cassandra-node-1 cqlsh -u cassandra -p cassandra -f /words.cql
@@ -37,9 +35,11 @@ docker exec -it cassandra-node-1 cqlsh -u cassandra -p cassandra -f /words.cql
 
 At this point, we can take a quick look at the state of this single node cluster.
 
-``` shell
+``` text
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ nodetool status
+```
+``` shell
 Datacenter: datacenter1
 =======================
 Status=Up/Down
@@ -50,15 +50,20 @@ UN  172.20.0.2  73.46 KiB  256     100.0%            24fe47c5-ff97-4971-8ed9-479
 
 And we can run some simple queries against this data
 
-``` shell
+``` text
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra
+```
+``` shell
 Connected to My Cluster at 127.0.0.1:9042
 [cqlsh 6.0.0 | Cassandra 4.0.5 | CQL spec 3.4.5 | Native protocol v5]
 Use HELP for help.
+```
+``` text
 cassandra@cqlsh> TRACING ON
 cassandra@cqlsh> SELECT * FROM cluster_benchmark.words WHERE uuid = 'd908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e';
-
+```
+``` shell
  uuid                                 | b64              | word
 --------------------------------------+------------------+-------------
  d908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e | YWxsZXJnb2xvZ3kK | allergology
@@ -85,8 +90,8 @@ more complex setups with Postgres to route SQL queries, this is all being done i
 
 Let us scale up this system, and see how it behaves differently
 
-``` shell
-docker run --name cassandra-node-2 --network cassandra -d -p 9043:9043 \
+``` text
+docker run --name cassandra-node-2 --network labnetwork -d -p 9043:9043 \
     -e CASSANDRA_CFG_ENV_MAX_HEAP_SIZE="2048M" \
     -e CASSANDRA_CFG_ENV_HEAP_NEWSIZE="512M" \
     -e CASSANDRA_CQL_PORT_NUMBER=9043 \
@@ -95,6 +100,8 @@ docker run --name cassandra-node-2 --network cassandra -d -p 9043:9043 \
     
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ nodetool status
+```
+``` shell
 Datacenter: datacenter1
 =======================
 Status=Up/Down
@@ -102,14 +109,13 @@ Status=Up/Down
 --  Address     Load       Tokens  Owns (effective)  Host ID                               Rack 
 UN  172.20.0.3  16.89 MiB  256     52.3%            6bcc4b96-775d-411d-86fb-7406b33cf8d0  rack1
 UN  172.20.0.2  16.91 MiB  256     47.7%            24fe47c5-ff97-4971-8ed9-4797289b49c7  rack1
-  
+```
+``` text
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra
-Connected to My Cluster at 127.0.0.1:9042
-[cqlsh 6.0.0 | Cassandra 4.0.5 | CQL spec 3.4.5 | Native protocol v5]
-Use HELP for help.
 cassandra@cqlsh> TRACING ON
 cassandra@cqlsh> SELECT * FROM cluster_benchmark.words WHERE uuid = 'd908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e';
-
+```
+``` shell
  uuid                                 | b64              | word
 --------------------------------------+------------------+-------------
  d908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e | YWxsZXJnb2xvZ3kK | allergology
@@ -149,16 +155,14 @@ single node setup. It is interesting to note though that this is the best case s
 
 Try the following to see just how much more expensive queries can run if designed without having Cassandra cluster routing in mind
 
-``` shell
+``` text
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra
-Connected to My Cluster at 127.0.0.1:9042
-[cqlsh 6.0.0 | Cassandra 4.0.5 | CQL spec 3.4.5 | Native protocol v5]
-Use HELP for help.
 cassandra@cqlsh> CREATE INDEX ON cluster_benchmark.words (word);
 cassandra@cqlsh> TRACING ON
 cassandra@cqlsh> SELECT * FROM cluster_benchmark.words WHERE word = 'allergology';
-
+```
+``` shell
  uuid                                 | b64              | word
 --------------------------------------+------------------+-------------
  d908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e | YWxsZXJnb2xvZ3kK | allergology
@@ -187,11 +191,11 @@ Let's take a look at how Cassandra manages this for some live environment change
 
 We'll start with retrieving a few records, and inspecting where they reside on the physical layer
 
-``` shell
+``` text
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FROM cluster_benchmark.words;" | sort | head
-
-
+```
+``` shell
  0001fd3b-7d8e-43a4-af1d-2f629e72c997 |             Y2hhcnR1bGFzCg== |          chartulas
  000283c8-a4e9-4d15-95fb-d8a51609243e |         Y3J5c3RhbGxvaWQK |      crystalloid
  0002d98a-5c42-4136-9a46-47198bdab92a |             Y2h1Y2tzdG9uZQo= |          chuckstone
@@ -200,26 +204,38 @@ I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FRO
  0005af52-fb24-471c-9451-67bc420cd453 |             YXNrYXJlbAo= |         askarel
  00066854-2967-46aa-8e19-8203e446585e |     ZGVhc3NpbWlsYXRpb24K |    deassimilation
  000811f6-0d80-4454-9c68-79d36402669e |                     ZG9idWxlCg== |                  dobule
- 
- 
+```
+``` text
 I have no name!@208104c57e58:/$ nodetool getendpoints cluster_benchmark words '0001fd3b-7d8e-43a4-af1d-2f629e72c997'
+```
+``` shell
 172.20.0.3
+```
+``` text
 I have no name!@208104c57e58:/$ nodetool getendpoints cluster_benchmark words '000283c8-a4e9-4d15-95fb-d8a51609243e'
+```
+``` shell
 172.20.0.3
+```
+``` text
 I have no name!@208104c57e58:/$ nodetool getendpoints cluster_benchmark words '0002d98a-5c42-4136-9a46-47198bdab92a'
+```
+``` shell
 172.20.0.2
+```
+``` text
 I have no name!@208104c57e58:/$ nodetool getendpoints cluster_benchmark words '00035505-473e-420d-b798-bbf293424a56'
+```
+``` shell
 172.20.0.3
-...
-
 ```
 
-Currently, each node holds about half of all records. Depending which system token any Primary Key gets hashed into, Cassandra will place the entry into that given node. Let's see what happens though when
+Currently, each node holds about half of all records. Depending on which system token any Primary Key gets hashed into, Cassandra will place the entry into that given node. Let's see what happens though when
 adding new nodes to a cluster live.
 
-``` shell
+``` text
 # A fourth node can be added as well if your workstation can spare the resources. Make sure to change the name and ports used.    
-docker run --name cassandra-node-3 --network cassandra -d -p 9044:9044 \
+docker run --name cassandra-node-3 --network labnetwork -d -p 9044:9044 \
     -e CASSANDRA_CFG_ENV_MAX_HEAP_SIZE="2048M" \
     -e CASSANDRA_CFG_ENV_HEAP_NEWSIZE="512M" \
     -e CASSANDRA_CQL_PORT_NUMBER=9044 \
@@ -228,6 +244,8 @@ docker run --name cassandra-node-3 --network cassandra -d -p 9044:9044 \
     
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ nodetool status
+```
+``` shell
 Datacenter: datacenter1
 =======================
 Status=Up/Down
@@ -236,12 +254,11 @@ Status=Up/Down
 UN  172.20.0.3  6.1 MiB    256     30.9%             6bcc4b96-775d-411d-86fb-7406b33cf8d0  rack1
 UN  172.20.0.4  93.36 KiB  256     35.2%             709938d1-37a1-405c-9f96-74808d728159  rack1
 UN  172.20.0.2  5.56 MiB   256     34.0%             24fe47c5-ff97-4971-8ed9-4797289b49c7  rack1
-
-
-
+```
+``` text
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FROM cluster_benchmark.words;" | sort | head
-
-
+```
+``` shell
  0001fd3b-7d8e-43a4-af1d-2f629e72c997 |         Y2hhcnR1bGFzCg== |       chartulas
  000283c8-a4e9-4d15-95fb-d8a51609243e |         Y3J5c3RhbGxvaWQK |     crystalloid
  0002d98a-5c42-4136-9a46-47198bdab92a |         Y2h1Y2tzdG9uZQo= |      chuckstone
@@ -250,13 +267,29 @@ I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FRO
  0005af52-fb24-471c-9451-67bc420cd453 |             YXNrYXJlbAo= |           askarel
  00066854-2967-46aa-8e19-8203e446585e |     ZGVhc3NpbWlsYXRpb24K |    deassimilation
  000811f6-0d80-4454-9c68-79d36402669e |                 ZG9idWxlCg== |              dobule
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '0001fd3b-7d8e-43a4-af1d-2f629e72c997'
+```
+``` shell
 172.20.0.4
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '000283c8-a4e9-4d15-95fb-d8a51609243e'
+```
+``` shell
 172.20.0.3
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '0002d98a-5c42-4136-9a46-47198bdab92a'
+```
+``` shell
 172.20.0.2
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '00035505-473e-420d-b798-bbf293424a56'
+```
+``` shell
 172.20.0.4
 ```
 
@@ -271,9 +304,11 @@ CREATE KEYSPACE IF NOT EXISTS cluster_benchmark WITH REPLICATION = { 'class' : '
 
 Let's see how the cluster reconfigures itself once we update the `replication_factor` to match the amount of nodes available. This is what you would expect from best practices, to ensure high availability of your data.
 
-``` shell
+``` text
 docker exec -it cassandra-node-1 /bin/bash
 I have no name!@208104c57e58:/$ nodetool status
+```
+``` shell
 Datacenter: datacenter1
 =======================
 Status=Up/Down
@@ -282,21 +317,27 @@ Status=Up/Down
 UN  172.20.0.3  6.1 MiB    256     30.9%             6bcc4b96-775d-411d-86fb-7406b33cf8d0  rack1
 UN  172.20.0.4  93.36 KiB  256     35.2%             709938d1-37a1-405c-9f96-74808d728159  rack1
 UN  172.20.0.2  5.56 MiB   256     34.0%             24fe47c5-ff97-4971-8ed9-4797289b49c7  rack1
-
+```
+``` text
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra
-Connected to My Cluster at 127.0.0.1:9042
-[cqlsh 6.0.0 | Cassandra 4.0.5 | CQL spec 3.4.5 | Native protocol v5]
-Use HELP for help.
 cassandra@cqlsh> ALTER KEYSPACE cluster_benchmark WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : '3' }; # or however many nodes you have
+```
+``` shell
 Warnings :
 When increasing replication factor you need to run a full (-full) repair to distribute the data.
+```
+``` text
 cassandra@cqlsh>quit
-
 I have no name!@f23acc8dc6db:/$ nodetool repair -full
+```
+``` shell
 ...
 [2022-08-02 22:02:34,576] Repair completed successfully
-
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool status
+```
+``` shell
 Datacenter: datacenter1
 =======================
 Status=Up/Down
@@ -305,10 +346,11 @@ Status=Up/Down
 UN  172.20.0.3  20.82 MiB  256     100.0%            6bcc4b96-775d-411d-86fb-7406b33cf8d0  rack1
 UN  172.20.0.4  21.24 MiB  256     100.0%            709938d1-37a1-405c-9f96-74808d728159  rack1
 UN  172.20.0.2  19.22 MiB  256     100.0%            24fe47c5-ff97-4971-8ed9-4797289b49c7  rack1
-
+```
+``` text
 I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FROM cluster_benchmark.words;" | sort | head
-
-
+```
+``` shell
  0001fd3b-7d8e-43a4-af1d-2f629e72c997 |         Y2hhcnR1bGFzCg== |       chartulas
  000283c8-a4e9-4d15-95fb-d8a51609243e |         Y3J5c3RhbGxvaWQK |     crystalloid
  0002d98a-5c42-4136-9a46-47198bdab92a |         Y2h1Y2tzdG9uZQo= |      chuckstone
@@ -317,19 +359,35 @@ I have no name!@208104c57e58:/$ cqlsh -u cassandra -p cassandra -e "SELECT * FRO
  0005af52-fb24-471c-9451-67bc420cd453 |             YXNrYXJlbAo= |           askarel
  00066854-2967-46aa-8e19-8203e446585e |     ZGVhc3NpbWlsYXRpb24K |    deassimilation
  000811f6-0d80-4454-9c68-79d36402669e |                 ZG9idWxlCg== |              dobule
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '0001fd3b-7d8e-43a4-af1d-2f629e72c997'
+```
+``` shell
 172.20.0.4
 172.20.0.2
 172.20.0.3
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '000283c8-a4e9-4d15-95fb-d8a51609243e'
+```
+``` shell
 172.20.0.3
 172.20.0.4
 172.20.0.2
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '0002d98a-5c42-4136-9a46-47198bdab92a'
+```
+``` shell
 172.20.0.2
 172.20.0.3
 172.20.0.4
+```
+``` text
 I have no name!@f23acc8dc6db:/$ nodetool getendpoints cluster_benchmark words '00035505-473e-420d-b798-bbf293424a56'
+```
+``` shell
 172.20.0.4
 172.20.0.2
 172.20.0.3
@@ -363,7 +421,7 @@ public static void main(String[] args) {
 
 We'll create the Keyspace again in this new cluster
 
-``` shell
+``` text
 cassandra@cqlsh> CREATE KEYSPACE IF NOT EXISTS spring_cassandra WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : '3' };
 ```
 
@@ -384,3 +442,59 @@ After running the application, and hitting the endpoint a few times, we'll see t
 We can see that the listed endPoint's are being balanced across all nodes in our cluster.
 
 Go ahead and see the behavior of this system as you stop and restart individual Docker containers. See which environment changes the application can accommodate, and which ones end up causing failure.
+
+
+## Testing
+
+The following commands will run the tests to validate that this environment was setup correctly. A screenshot of the successful tests can be uploaded as a submission.
+
+``` text
+docker run --network labnetwork -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/test:/test inspec-lab exec docker.rb
+```
+``` shell
+Profile:   tests from docker.rb (tests from docker.rb)
+Version:   (not specified)
+Target:    local://
+Target ID: 
+
+  ✔  Cassandra Node 1 Running: Cassandra Docker instance 1 is running
+     ✔  #<Inspec::Resources::DockerImageFilter:0x00005638c8538d90> with repository == "bitnami/cassandra" tag == "4.0.5-debian-11-r1" is expected to exist
+     ✔  #<Inspec::Resources::DockerContainerFilter:0x00005638c6999940> with names == "cassandra-node-1" image == "bitnami/cassandra:4.0.5-debian-11-r1" status is expected to match [/Up/]
+     ✔  Cassandra query: SELECT cluster_name FROM system.local output is expected to match /My Cluster/
+  ✔  Cassandra Node 2 Running: Cassandra Docker instance 2 is running
+     ✔  #<Inspec::Resources::DockerContainerFilter:0x00005638c6e19b50> with names == "cassandra-node-2" image == "bitnami/cassandra:4.0.5-debian-11-r1" status is expected to match [/Up/]
+     ✔  Cassandra query: SELECT cluster_name FROM system.local output is expected to match /My Cluster/
+  ✔  Cassandra Node 3 Running: Cassandra Docker instance 3 is running
+     ✔  #<Inspec::Resources::DockerContainerFilter:0x00005638c53896a0> with names == "cassandra-node-3" image == "bitnami/cassandra:4.0.5-debian-11-r1" status is expected to match [/Up/]
+     ✔  Cassandra query: SELECT cluster_name FROM system.local output is expected to match /My Cluster/
+  ✔  Cassandra Benchmark Keyspace: Benchmark Keyspace exists
+     ✔  Cassandra query: DESCRIBE KEYSPACE cluster_benchmark output is expected not to match /not found/
+  ✔  Cassandra Benchmark Table: Words Table  exists
+     ✔  Cassandra query: SELECT uuid FROM cluster_benchmark.words output is expected to match /d908e5e6-9a3c-4b1c-be6f-7e13c8ac8d0e/
+  ✔  Cassandra Benchmark Keyspace Replication: Benchmark Keyspace Replication 3+
+     ✔  Cassandra query: DESCRIBE KEYSPACE cluster_benchmark output is expected to match /'replication_factor': '3'/ or match /'replication_factor': '4'/
+  ✔  Spring Cassandra Keyspace: Spring Keyspace exists
+     ✔  Cassandra query: DESCRIBE KEYSPACE spring_cassandra output is expected not to match /not found/
+  ✔  Spring Cassandra Keyspace Replication: Spring Keyspace Replication 3+
+     ✔  Cassandra query: DESCRIBE KEYSPACE spring_cassandra output is expected to match /'replication_factor': '3'/ or match /'replication_factor': '4'/
+
+
+Profile Summary: 8 successful controls, 0 control failures, 0 controls skipped
+Test Summary: 12 successful, 0 failures, 0 skipped
+```
+``` text
+docker run --network labnetwork -it --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd)/test:/test inspec-lab exec cassandra.rb -t docker://cassandra-node-1
+```
+``` shell
+Profile:   tests from cassandra.rb (tests from cassandra.rb)
+Version:   (not specified)
+Target:    docker://f23acc8dc6db162b5d466415d575849e55a166ca18a71e9440148f38d9eaf404
+Target ID: da39a3ee-5e6b-5b0d-b255-bfef95601890
+
+  ✔  Cassandra Cluster: Cassandra Cluster Up and Ready
+     ✔  Command: `nodetool status | grep UN | wc -l` stdout is expected to match "3" or match "4"
+
+
+Profile Summary: 1 successful control, 0 control failures, 0 controls skipped
+Test Summary: 1 successful, 0 failures, 0 skipped
+```
